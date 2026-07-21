@@ -10,14 +10,14 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-            - name: Setup build environment
+                 - name: Setup build environment
         run: |
           sudo apt-get update
           sudo apt-get install -y \
             bc bison build-essential ccache curl \
             flex g++-multilib gcc-multilib git \
-            gnupg imagemagick libncurses5-dev \
-            libncurses6-dev libncurses-dev \
+            gnupg imagemagick libncurses6-dev \
+            libncurses-dev libreadline-dev \
             libsdl1.2-dev libssl-dev libxml2 \
             libxml2-utils lzop pngcrush rsync \
             schedtool squashfs-tools xsltproc \

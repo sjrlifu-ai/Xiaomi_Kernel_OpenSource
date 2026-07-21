@@ -34,14 +34,11 @@ jobs:
 
       - name: Fix missing Kconfig references
         run: |
-          # Fix heimdall Kconfig missing
           mkdir -p drivers/misc/heimdall
           echo "" > drivers/misc/heimdall/Kconfig
           echo 'obj-$(CONFIG_HEIMDALL) += heimdall.o' > drivers/misc/heimdall/Makefile
           touch drivers/misc/heimdall/heimdall.c
-          echo "Fixed heimdall Kconfig"
 
-          # Scan for any other broken source references and fix them
           grep -rn 'source.*Kconfig' drivers/misc/Kconfig | grep -v "^#" | while read line; do
             file=$(echo "$line" | grep -oP '"[^"]*Kconfig"' | tr -d '"')
             if [ ! -f "$file" ]; then
@@ -76,7 +73,11 @@ jobs:
           scripts/config --enable CONFIG_KALLSYMS_ALL
 
           make olddefconfig
-          make -j$(nproc) 2>&1 | tee build.log
+          make -j$(nproc) 2>&1 | tee build.log || true
+
+          echo "=== Build output check ==="
+          ls -la arch/arm64/boot/ 2>/dev/null || echo "No boot directory"
+          tail -50 build.log
 
       - name: Package AnyKernel3
         run: |
@@ -94,3 +95,10 @@ jobs:
         with:
           name: kernel-zorn-sukisu
           path: kernel-zorn-sukisu.zip
+
+      - name: Upload build log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-log
+          path: build.log

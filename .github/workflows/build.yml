@@ -32,15 +32,7 @@ jobs:
         run: |
           curl -LSs "https://raw.githubusercontent.com/SukiSU-Ultra/SukiSU-Ultra/main/kernel/setup.sh" | bash -s builtin
 
-      - name: Fix missing Kconfig references
-        run: |
-          mkdir -p drivers/misc/heimdall
-          echo "" > drivers/misc/heimdall/Kconfig
-          echo 'obj-$(CONFIG_HEIMDALL) += heimdall.o' > drivers/misc/heimdall/Makefile
-          touch drivers/misc/heimdall/heimdall.c
-
       - name: Build kernel
-        id: build
         run: |
           export ARCH=arm64
           export SUBARCH=arm64
@@ -59,13 +51,16 @@ jobs:
             make $DEFCONFIG
           fi
 
+          # 修复 heimdall 模块引用问题
+          sed -i 's/"drivers\/misc\/heimdall\/Kconfig"/""/g' drivers/misc/Kconfig
+          sed -i '/obj-.*heimdall/d' drivers/misc/Makefile
+
           scripts/config --enable CONFIG_KPM
           scripts/config --enable CONFIG_KALLSYMS
           scripts/config --enable CONFIG_KALLSYMS_ALL
 
           make olddefconfig
           make -j$(nproc) 2>&1 | tee build.log
-          echo "build_status=${PIPESTATUS[0]}" >> "$GITHUB_OUTPUT"
 
       - name: Upload build log
         if: always()
@@ -74,17 +69,8 @@ jobs:
           name: build-log
           path: build.log
 
-      - name: Show build result
-        if: always()
-        run: |
-          echo "=== Last 50 lines of build log ==="
-          tail -50 build.log 2>/dev/null || echo "No build log found"
-          echo ""
-          echo "=== Boot directory ==="
-          ls -la arch/arm64/boot/ 2>/dev/null || echo "No boot directory"
-
       - name: Package AnyKernel3
-        if: steps.build.outputs.build_status == '0'
+        if: success()
         run: |
           git clone --depth=1 https://github.com/osm0sis/AnyKernel3.git
 
@@ -96,7 +82,7 @@ jobs:
           zip -r9 ../kernel-zorn-sukisu.zip . -x "*.git*"
 
       - name: Upload kernel
-        if: steps.build.outputs.build_status == '0'
+        if: success()
         uses: actions/upload-artifact@v4
         with:
           name: kernel-zorn-sukisu

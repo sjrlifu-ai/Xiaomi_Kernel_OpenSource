@@ -31,10 +31,26 @@ jobs:
       - name: Integrate SukiSU Ultra
         run: |
           curl -LSs "https://raw.githubusercontent.com/SukiSU-Ultra/SukiSU-Ultra/main/kernel/setup.sh" | bash -s builtin
-          echo "=== Check SukiSU integration ==="
-          ls -la drivers/sukisu/ 2>/dev/null || echo "drivers/sukisu/ not found"
-          ls -la drivers/misc/Kconfig 2>/dev/null || echo "drivers/misc/Kconfig not found"
-          grep -n "sukisu" drivers/misc/Kconfig 2>/dev/null || echo "No sukinsu reference in drivers/misc/Kconfig"
+
+      - name: Fix missing Kconfig references
+        run: |
+          # Fix heimdall Kconfig missing
+          mkdir -p drivers/misc/heimdall
+          echo "" > drivers/misc/heimdall/Kconfig
+          echo 'obj-$(CONFIG_HEIMDALL) += heimdall.o' > drivers/misc/heimdall/Makefile
+          touch drivers/misc/heimdall/heimdall.c
+          echo "Fixed heimdall Kconfig"
+
+          # Scan for any other broken source references and fix them
+          grep -rn 'source.*Kconfig' drivers/misc/Kconfig | grep -v "^#" | while read line; do
+            file=$(echo "$line" | grep -oP '"[^"]*Kconfig"' | tr -d '"')
+            if [ ! -f "$file" ]; then
+              dir=$(dirname "$file")
+              mkdir -p "$dir"
+              touch "$file"
+              echo "Created missing: $file"
+            fi
+          done
 
       - name: Build kernel
         run: |

@@ -31,6 +31,10 @@ jobs:
       - name: Integrate SukiSU Ultra
         run: |
           curl -LSs "https://raw.githubusercontent.com/SukiSU-Ultra/SukiSU-Ultra/main/kernel/setup.sh" | bash -s builtin
+          echo "=== Check SukiSU integration ==="
+          ls -la drivers/sukisu/ 2>/dev/null || echo "drivers/sukisu/ not found"
+          ls -la drivers/misc/Kconfig 2>/dev/null || echo "drivers/misc/Kconfig not found"
+          grep -n "sukisu" drivers/misc/Kconfig 2>/dev/null || echo "No sukinsu reference in drivers/misc/Kconfig"
 
       - name: Build kernel
         run: |

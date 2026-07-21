@@ -39,17 +39,8 @@ jobs:
           echo 'obj-$(CONFIG_HEIMDALL) += heimdall.o' > drivers/misc/heimdall/Makefile
           touch drivers/misc/heimdall/heimdall.c
 
-          grep -rn 'source.*Kconfig' drivers/misc/Kconfig | grep -v "^#" | while read line; do
-            file=$(echo "$line" | grep -oP '"[^"]*Kconfig"' | tr -d '"')
-            if [ ! -f "$file" ]; then
-              dir=$(dirname "$file")
-              mkdir -p "$dir"
-              touch "$file"
-              echo "Created missing: $file"
-            fi
-          done
-
       - name: Build kernel
+        id: build
         run: |
           export ARCH=arm64
           export SUBARCH=arm64
@@ -73,13 +64,27 @@ jobs:
           scripts/config --enable CONFIG_KALLSYMS_ALL
 
           make olddefconfig
-          make -j$(nproc) 2>&1 | tee build.log || true
+          make -j$(nproc) 2>&1 | tee build.log
+          echo "build_status=${PIPESTATUS[0]}" >> "$GITHUB_OUTPUT"
 
-          echo "=== Build output check ==="
+      - name: Upload build log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-log
+          path: build.log
+
+      - name: Show build result
+        if: always()
+        run: |
+          echo "=== Last 50 lines of build log ==="
+          tail -50 build.log 2>/dev/null || echo "No build log found"
+          echo ""
+          echo "=== Boot directory ==="
           ls -la arch/arm64/boot/ 2>/dev/null || echo "No boot directory"
-          tail -50 build.log
 
       - name: Package AnyKernel3
+        if: steps.build.outputs.build_status == '0'
         run: |
           git clone --depth=1 https://github.com/osm0sis/AnyKernel3.git
 
@@ -91,14 +96,8 @@ jobs:
           zip -r9 ../kernel-zorn-sukisu.zip . -x "*.git*"
 
       - name: Upload kernel
+        if: steps.build.outputs.build_status == '0'
         uses: actions/upload-artifact@v4
         with:
           name: kernel-zorn-sukisu
           path: kernel-zorn-sukisu.zip
-
-      - name: Upload build log
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: build-log
-          path: build.log

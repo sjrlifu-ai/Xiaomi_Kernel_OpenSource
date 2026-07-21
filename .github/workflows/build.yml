@@ -17,7 +17,7 @@ jobs:
             bc bison build-essential ccache curl \
             flex g++-multilib gcc-multilib git \
             gnupg imagemagick libncurses-dev \
-            libncurses-dev libreadline-dev \
+            libreadline-dev \
             libsdl1.2-dev libssl-dev libxml2 \
             libxml2-utils lzop pngcrush rsync \
             schedtool squashfs-tools xsltproc \

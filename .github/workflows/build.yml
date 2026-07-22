@@ -10,6 +10,17 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Save zorn defconfigs before SukiSU
+        run: |
+          echo "=== Saving zorn defconfigs ==="
+          mkdir -p /tmp/zorn-configs
+          cp -r arch/arm64/configs/vendor/zorn-perf/ /tmp/zorn-configs/zorn-perf/ 2>/dev/null || echo "No zorn-perf"
+          cp arch/arm64/configs/vendor/zorn_gki_defconfig /tmp/zorn-configs/ 2>/dev/null || echo "No zorn_gki_defconfig"
+          cp arch/arm64/configs/vendor/zorn_gki_defconfig /tmp/zorn-configs/zorn_gki_defconfig.bak 2>/dev/null || true
+          echo "=== Saved ==="
+          ls -la /tmp/zorn-configs/ 2>/dev/null
+          ls -la /tmp/zorn-configs/zorn-perf/ 2>/dev/null
+
       - name: Setup build environment
         run: |
           sudo apt-get update
@@ -32,6 +43,15 @@ jobs:
         run: |
           curl -LSs "https://raw.githubusercontent.com/SukiSU-Ultra/SukiSU-Ultra/main/kernel/setup.sh" | bash -s builtin
 
+      - name: Restore zorn defconfigs
+        run: |
+          echo "=== Restoring zorn defconfigs ==="
+          mkdir -p arch/arm64/configs/vendor/zorn-perf/
+          cp -r /tmp/zorn-configs/zorn-perf/* arch/arm64/configs/vendor/zorn-perf/ 2>/dev/null || echo "No zorn-perf to restore"
+          cp /tmp/zorn-configs/zorn_gki_defconfig arch/arm64/configs/vendor/ 2>/dev/null || echo "No gki to restore"
+          echo "=== Restored ==="
+          find arch/arm64/configs/ -name "*defconfig" 2>/dev/null | sort
+
       - name: Fix all missing Kconfig references
         run: |
           find . -name "Kconfig" -exec grep -h 'source "' {} \; 2>/dev/null | \
@@ -43,23 +63,6 @@ jobs:
             fi
           done
 
-      - name: Find all defconfigs
-        run: |
-          echo "=== All defconfigs after SukiSU Ultra integration ==="
-          find arch/arm64/configs/ -name "*defconfig" 2>/dev/null | sort
-          echo ""
-          echo "=== vendor/ directory ==="
-          ls -la arch/arm64/configs/vendor/ 2>/dev/null || echo "vendor/ not found"
-          echo ""
-          echo "=== zorn* files anywhere ==="
-          find . -name "*zorn*" 2>/dev/null | head -20
-          echo ""
-          echo "=== gki* files ==="
-          find arch/arm64/configs/ -name "*gki*" 2>/dev/null | sort
-          echo ""
-          echo "=== vendor/ contents ==="
-          find arch/arm64/configs/vendor/ -type f 2>/dev/null | sort | head -30
-
       - name: Build kernel
         run: |
           set -eo pipefail
@@ -67,12 +70,14 @@ jobs:
           export SUBARCH=arm64
           export CROSS_COMPILE=aarch64-linux-gnu-
 
-          # Search for any available defconfig
-          DEFCONFIG=$(find arch/arm64/configs/ -name "*defconfig" 2>/dev/null | head -1)
+          echo "=== Available defconfigs ==="
+          find arch/arm64/configs/ -name "*defconfig" 2>/dev/null | sort
+
+          DEFCONFIG="arch/arm64/configs/vendor/zorn-perf/zorn-perf_defconfig"
           echo "Using defconfig: $DEFCONFIG"
 
-          if [ -z "$DEFCONFIG" ]; then
-            echo "ERROR: No defconfig found!"
+          if [ ! -f "$DEFCONFIG" ]; then
+            echo "ERROR: zorn-perf_defconfig not found!"
             exit 1
           fi
 
@@ -88,13 +93,13 @@ jobs:
       - name: Show build result
         if: always()
         run: |
-          echo "=== Last 100 lines of build log ==="
-          tail -100 build.log 2>/dev/null || echo "No build log"
+          echo "=== Last 50 lines of build log ==="
+          tail -50 build.log 2>/dev/null || echo "No build log"
           echo ""
-          echo "=== Search for actual error ==="
-          grep -n "Error\|error:" build.log 2>/dev/null | tail -20 || echo "No errors found"
+          echo "=== Actual errors ==="
+          grep -n "error:" build.log 2>/dev/null | tail -30 || echo "No errors found"
           echo ""
-          echo "=== arch/arm64/boot/ contents ==="
+          echo "=== arch/arm64/boot/ ==="
           ls -la arch/arm64/boot/ 2>/dev/null || echo "No arch/arm64/boot/"
 
       - name: Upload build log
@@ -108,7 +113,6 @@ jobs:
         if: success()
         run: |
           git clone --depth=1 https://github.com/osm0sis/AnyKernel3.git
-
           cp arch/arm64/boot/Image.gz-dtb AnyKernel3/ 2>/dev/null || \
           cp arch/arm64/boot/Image.gz AnyKernel3/ 2>/dev/null || \
           cp arch/arm64/boot/Image AnyKernel3/ 2>/dev/null || \
@@ -116,7 +120,6 @@ jobs:
           cp out/arch/arm64/boot/Image.gz AnyKernel3/ 2>/dev/null || \
           cp out/arch/arm64/boot/Image AnyKernel3/ 2>/dev/null || \
           { echo "ERROR: No kernel image found"; exit 1; }
-
           cd AnyKernel3
           zip -r9 ../kernel-zorn-sukisu.zip . -x "*.git*"
 

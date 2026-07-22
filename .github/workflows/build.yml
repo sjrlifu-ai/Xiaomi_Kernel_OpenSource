@@ -43,17 +43,6 @@ jobs:
             fi
           done
 
-      - name: Find correct defconfig
-        run: |
-          echo "=== All defconfigs ==="
-          find arch/arm64/configs/ -name "*defconfig" -o -name "*.config" 2>/dev/null | sort
-          echo ""
-          echo "=== zorn-perf dir ==="
-          ls -la arch/arm64/configs/vendor/zorn-perf/ 2>/dev/null || echo "dir not found"
-          echo ""
-          echo "=== zorn_gki_defconfig dir ==="
-          ls -la arch/arm64/configs/vendor/zorn_gki_defconfig 2>/dev/null || echo "not found"
-
       - name: Build kernel
         run: |
           set -eo pipefail
@@ -61,20 +50,16 @@ jobs:
           export SUBARCH=arm64
           export CROSS_COMPILE=aarch64-linux-gnu-
 
-          # Use zorn_gki_defconfig as base, then merge zorn-perf config
-          DEFCONFIG="arch/arm64/configs/vendor/zorn_gki_defconfig"
-          CONFIGFILE="arch/arm64/configs/vendor/zorn-perf/zorn-perf.config"
+          echo "=== Available defconfigs ==="
+          find arch/arm64/configs/ -name "*defconfig" 2>/dev/null | sort
+
+          # Use zorn-perf_defconfig
+          DEFCONFIG="arch/arm64/configs/vendor/zorn-perf/zorn-perf_defconfig"
 
           echo "Using defconfig: $DEFCONFIG"
-          echo "Using config: $CONFIGFILE"
 
-          # Copy config to .config
-          cp "$CONFIGFILE" .config
-
-          # Make the base defconfig
           make $DEFCONFIG
 
-          # Enable required options
           scripts/config --enable CONFIG_KPM
           scripts/config --enable CONFIG_KALLSYMS
           scripts/config --enable CONFIG_KALLSYMS_ALL

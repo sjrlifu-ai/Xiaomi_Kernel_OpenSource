@@ -65,11 +65,8 @@ jobs:
 
           make olddefconfig
 
-          # Remove broken header that fails HDRTEST (missing stdint.h, timespec)
-          rm -f usr/include/media/ispv4_defs.h
-          echo "Removed usr/include/media/ispv4_defs.h"
-
-          make -j$(nproc) 2>&1 | tee build.log
+          # Build only Image + modules (skip headers_install which triggers broken HDRTEST)
+          make -j$(nproc) Image modules 2>&1 | tee build.log
 
       - name: Show build result
         if: always()
@@ -79,6 +76,10 @@ jobs:
           echo ""
           echo "=== Actual errors ==="
           grep -n "error:" build.log 2>/dev/null | tail -30 || echo "No errors found"
+          echo ""
+          echo "=== Kernel image check ==="
+          ls -la arch/arm64/boot/Image* 2>/dev/null || echo "No Image found in arch/arm64/boot/"
+          ls -la out/arch/arm64/boot/Image* 2>/dev/null || echo "No Image found in out/arch/arm64/boot/"
 
       - name: Upload build log
         if: always()

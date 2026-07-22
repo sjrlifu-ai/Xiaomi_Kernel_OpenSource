@@ -65,12 +65,9 @@ jobs:
 
           make olddefconfig
 
-          # Fix broken HDRTEST for ispv4_defs.h
-          echo "=== Before fix ==="
-          grep -n ispv4_defs usr/include/Makefile || echo "not found"
-          sed -i '\|ispv4_defs|d' usr/include/Makefile
-          echo "=== After fix ==="
-          grep -n ispv4_defs usr/include/Makefile || echo "ispv4_defs removed OK"
+          # Remove broken header that fails HDRTEST (missing stdint.h, timespec)
+          rm -f usr/include/media/ispv4_defs.h
+          echo "Removed usr/include/media/ispv4_defs.h"
 
           make -j$(nproc) 2>&1 | tee build.log
 

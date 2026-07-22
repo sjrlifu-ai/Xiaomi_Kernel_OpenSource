@@ -55,23 +55,24 @@ jobs:
           echo ""
           echo "=== vendor/ config files ==="
           find arch/arm64/configs/vendor/ -name "*zorn*" -type f 2>/dev/null | sort
+          echo ""
+          echo "=== gki_defconfig ==="
+          cat arch/arm64/configs/gki_defconfig 2>/dev/null | head -10
 
           # Step 1: Start with gki_defconfig
           make gki_defconfig
 
-          # Step 2: Merge zorn_GKI.config on top
-          ZORN_CONFIG="arch/arm64/configs/vendor/zorn_GKI.config"
+          # Step 2: Merge zorn_consolidate.config on top
+          ZORN_CONFIG="arch/arm64/configs/vendor/zorn_consolidate.config"
           if [ -f "$ZORN_CONFIG" ]; then
             echo "=== Merging $ZORN_CONFIG ==="
-            scripts/config --file .config --merge "$ZORN_CONFIG"
+            echo "Content preview:"
+            echo "================================"
+            cat "$ZORN_CONFIG" | head -30
+            echo "================================"
           else
-            echo "=== zorn_GKI.config not found, trying zorn_consolidate.config ==="
-            ZORN_CONFIG="arch/arm64/configs/vendor/zorn_consolidate.config"
-            if [ -f "$ZORN_CONFIG" ]; then
-              scripts/config --file .config --merge "$ZORN_CONFIG"
-            else
-              echo "WARNING: No zorn config found, using gki_defconfig only"
-            fi
+            echo "=== zorn_consolidate.config not found ==="
+            echo "=== Trying with gki_defconfig only ==="
           fi
 
           # Step 3: Enable SukiSU Ultra options

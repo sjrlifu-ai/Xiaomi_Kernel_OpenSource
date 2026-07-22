@@ -58,8 +58,14 @@ jobs:
 
           echo "Using defconfig: $DEFCONFIG"
 
-          make $DEFCONFIG
+          # Copy config to .config
+          cp $DEFCONFIG .config
 
+          # Load zorn-perf config using scripts/config
+          echo "=== Loading zorn-perf config ==="
+          scripts/config --load arch/arm64/configs/vendor/zorn-perf/zorn-perf.config
+
+          # Enable required options
           scripts/config --enable CONFIG_KPM
           scripts/config --enable CONFIG_KALLSYMS
           scripts/config --enable CONFIG_KALLSYMS_ALL

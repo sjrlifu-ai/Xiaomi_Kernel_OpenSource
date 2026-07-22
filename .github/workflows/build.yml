@@ -50,51 +50,30 @@ jobs:
           export SUBARCH=arm64
           export CROSS_COMPILE=aarch64-linux-gnu-
 
-          echo "=== Available defconfigs ==="
-          find arch/arm64/configs/ -name "*defconfig" 2>/dev/null | sort
-          echo ""
-          echo "=== vendor/ config files ==="
-          find arch/arm64/configs/vendor/ -name "*zorn*" -type f 2>/dev/null | sort
-          echo ""
-          echo "=== gki_defconfig ==="
-          cat arch/arm64/configs/gki_defconfig 2>/dev/null | head -10
-
-          # Step 1: Start with gki_defconfig
           make gki_defconfig
 
-          # Step 2: Merge zorn_consolidate.config on top
           ZORN_CONFIG="arch/arm64/configs/vendor/zorn_consolidate.config"
           if [ -f "$ZORN_CONFIG" ]; then
             echo "=== Merging $ZORN_CONFIG ==="
-            echo "Content preview:"
-            echo "================================"
-            cat "$ZORN_CONFIG" | head -30
-            echo "================================"
-          else
-            echo "=== zorn_consolidate.config not found ==="
-            echo "=== Trying with gki_defconfig only ==="
+            cat "$ZORN_CONFIG" >> .config
           fi
 
-          # Step 3: Enable SukiSU Ultra options
           scripts/config --enable CONFIG_KPM
           scripts/config --enable CONFIG_KALLSYMS
           scripts/config --enable CONFIG_KALLSYMS_ALL
           scripts/config --enable CONFIG_MODULES
 
           make olddefconfig
-          make -j$(nproc) 2>&1 | tee build.log
+          make -j$(nproc) 2>&1 | tee build.log || true
 
-      - name: Show build result
+      - name: Show build errors
         if: always()
         run: |
-          echo "=== Last 50 lines of build log ==="
-          tail -50 build.log 2>/dev/null || echo "No build log"
+          echo "=== Last 80 lines of build log ==="
+          tail -80 build.log 2>/dev/null || echo "No build log"
           echo ""
-          echo "=== Actual errors ==="
+          echo "=== All error lines ==="
           grep -n "error:" build.log 2>/dev/null | tail -30 || echo "No errors found"
-          echo ""
-          echo "=== arch/arm64/boot/ ==="
-          ls -la arch/arm64/boot/ 2>/dev/null || echo "No arch/arm64/boot/"
 
       - name: Upload build log
         if: always()

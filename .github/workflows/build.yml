@@ -10,16 +10,34 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Save zorn defconfigs before SukiSU
+      - name: Find zorn configs
         run: |
-          echo "=== Saving zorn defconfigs ==="
-          mkdir -p /tmp/zorn-configs
-          cp -r arch/arm64/configs/vendor/zorn-perf/ /tmp/zorn-configs/zorn-perf/ 2>/dev/null || echo "No zorn-perf"
-          cp arch/arm64/configs/vendor/zorn_gki_defconfig /tmp/zorn-configs/ 2>/dev/null || echo "No zorn_gki_defconfig"
-          cp arch/arm64/configs/vendor/zorn_gki_defconfig /tmp/zorn-configs/zorn_gki_defconfig.bak 2>/dev/null || true
-          echo "=== Saved ==="
-          ls -la /tmp/zorn-configs/ 2>/dev/null
-          ls -la /tmp/zorn-configs/zorn-perf/ 2>/dev/null
+          echo "=== All defconfigs ==="
+          find arch/arm64/configs/ -name "*defconfig" 2>/dev/null | sort
+          echo ""
+          echo "=== vendor/ ==="
+          ls -la arch/arm64/configs/vendor/ 2>/dev/null
+          echo ""
+          echo "=== zorn* anywhere ==="
+          find . -name "*zorn*" -type f 2>/dev/null | head -20
+          echo ""
+          echo "=== zorn* files in configs/ ==="
+          find arch/arm64/configs/ -name "*zorn*" 2>/dev/null | sort
+          echo ""
+          echo "=== gki* files ==="
+          find arch/arm64/configs/ -name "*gki*" 2>/dev/null | sort
+          echo ""
+          echo "=== vendor/ contents ==="
+          find arch/arm64/configs/vendor/ -type f 2>/dev/null | sort | head -30
+          echo ""
+          echo "=== zorn*_perf/ ==="
+          ls -laR arch/arm64/configs/vendor/zorn*_perf/ 2>/dev/null | head -50
+          echo ""
+          echo "=== Contents of zorn-perf_defconfig ==="
+          cat arch/arm64/configs/vendor/zorn-perf/zorn-perf_defconfig 2>/dev/null | head -40
+          echo ""
+          echo "=== Contents of zorn-perf.config ==="
+          cat arch/arm64/configs/vendor/zorn-perf/zorn-perf.config 2>/dev/null | head -40
 
       - name: Setup build environment
         run: |
@@ -43,15 +61,6 @@ jobs:
         run: |
           curl -LSs "https://raw.githubusercontent.com/SukiSU-Ultra/SukiSU-Ultra/main/kernel/setup.sh" | bash -s builtin
 
-      - name: Restore zorn defconfigs
-        run: |
-          echo "=== Restoring zorn defconfigs ==="
-          mkdir -p arch/arm64/configs/vendor/zorn-perf/
-          cp -r /tmp/zorn-configs/zorn-perf/* arch/arm64/configs/vendor/zorn-perf/ 2>/dev/null || echo "No zorn-perf to restore"
-          cp /tmp/zorn-configs/zorn_gki_defconfig arch/arm64/configs/vendor/ 2>/dev/null || echo "No gki to restore"
-          echo "=== Restored ==="
-          find arch/arm64/configs/ -name "*defconfig" 2>/dev/null | sort
-
       - name: Fix all missing Kconfig references
         run: |
           find . -name "Kconfig" -exec grep -h 'source "' {} \; 2>/dev/null | \
@@ -73,6 +82,7 @@ jobs:
           echo "=== Available defconfigs ==="
           find arch/arm64/configs/ -name "*defconfig" 2>/dev/null | sort
 
+          # Use zorn-perf_defconfig
           DEFCONFIG="arch/arm64/configs/vendor/zorn-perf/zorn-perf_defconfig"
           echo "Using defconfig: $DEFCONFIG"
 

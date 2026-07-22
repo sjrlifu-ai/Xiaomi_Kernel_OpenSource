@@ -45,22 +45,20 @@ jobs:
 
       - name: Find correct defconfig
         run: |
-          echo "=== All defconfigs in arch/arm64/configs/ ==="
+          echo "=== All defconfigs ==="
           find arch/arm64/configs/ -name "*defconfig" -o -name "*.config" 2>/dev/null | sort
           echo ""
-          echo "=== Searching for zorn anywhere ==="
-          find . -name "*zorn*" -path "*/configs/*" 2>/dev/null | head -20
+          echo "=== zorn-perf directory ==="
+          ls -la arch/arm64/configs/vendor/zorn-perf/ 2>/dev/null || echo "dir not found"
           echo ""
-          echo "=== vendor/ configs ==="
-          ls -la arch/arm64/configs/vendor/ 2>/dev/null || echo "No vendor/ dir"
+          echo "=== Content of zorn-perf_defconfig ==="
+          cat arch/arm64/configs/vendor/zorn-perf/zorn-perf_defconfig 2>/dev/null | head -30
           echo ""
-          echo "=== GKI fragments ==="
-          ls arch/arm64/configs/*.fragment 2>/dev/null | head -10
+          echo "=== Content of zorn-perf.config ==="
+          cat arch/arm64/configs/vendor/zorn-perf/zorn-perf.config 2>/dev/null | head -30
           echo ""
-          echo "=== Checking build.config ==="
-          cat build.config.common 2>/dev/null | head -20 || echo "No build.config.common"
-          cat build.config.zorn* 2>/dev/null | head -20 || echo "No build.config.zorn*"
-          find . -name "build.config*" -path "*zorn*" 2>/dev/null | head -5
+          echo "=== All files in zorn-perf ==="
+          find arch/arm64/configs/vendor/zorn-perf/ -type f 2>/dev/null
 
       - name: Build kernel
         run: |
@@ -69,37 +67,20 @@ jobs:
           export SUBARCH=arm64
           export CROSS_COMPILE=aarch64-linux-gnu-
 
-          # Try multiple defconfig locations
-          DEFCONFIG=""
-          for pattern in \
-            "arch/arm64/configs/vendor/zorn_defconfig" \
-            "arch/arm64/configs/vendor/zorn-perf_defconfig" \
-            "arch/arm64/configs/vendor/zorn_gki_defconfig" \
-            "arch/arm64/configs/zorn_defconfig" \
-            "arch/arm64/configs/zorn-perf_defconfig" \
-            "arch/arm64/configs/zorn_gki_defconfig"; do
-            if [ -f "$pattern" ]; then
-              DEFCONFIG="$pattern"
-              break
-            fi
-          done
-
-          # If no exact match, try find
-          if [ -z "$DEFCONFIG" ]; then
-            DEFCONFIG=$(find arch/arm64/configs -name "*zorn*" -name "*defconfig" 2>/dev/null | head -1)
-          fi
+          # Use the complete zorn-perf configuration
+          DEFCONFIG="arch/arm64/configs/vendor/zorn-perf/zorn-perf_defconfig"
+          CONFIGFILE="arch/arm64/configs/vendor/zorn-perf/zorn-perf.config"
 
           echo "Using defconfig: $DEFCONFIG"
+          echo "Using config: $CONFIGFILE"
 
-          if [ -z "$DEFCONFIG" ]; then
-            echo "ERROR: No zorn defconfig found!"
-            echo "Available configs:"
-            find arch/arm64/configs/ -name "*defconfig" | sort
-            exit 1
-          fi
+          # Copy config to .config
+          cp "$CONFIGFILE" .config
 
+          # Make the defconfig
           make $DEFCONFIG
 
+          # Enable required options
           scripts/config --enable CONFIG_KPM
           scripts/config --enable CONFIG_KALLSYMS
           scripts/config --enable CONFIG_KALLSYMS_ALL

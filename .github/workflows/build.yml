@@ -65,7 +65,11 @@ jobs:
 
           make olddefconfig
 
-          # Build only Image + modules (skip headers_install which triggers broken HDRTEST)
+          # Fix ispv4_defs.h: add missing includes for uint32_t and struct timespec
+          { echo '#include <stdint.h>'; echo '#include <linux/time.h>'; cat include/media/ispv4_defs.h; } > include/media/ispv4_defs.h.tmp
+          mv include/media/ispv4_defs.h.tmp include/media/ispv4_defs.h
+          echo "Patched include/media/ispv4_defs.h"
+
           make -j$(nproc) Image modules 2>&1 | tee build.log
 
       - name: Show build result

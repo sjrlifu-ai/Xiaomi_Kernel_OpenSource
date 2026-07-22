@@ -32,6 +32,19 @@ jobs:
         run: |
           curl -LSs "https://raw.githubusercontent.com/SukiSU-Ultra/SukiSU-Ultra/main/kernel/setup.sh" | bash -s builtin
 
+      - name: Fix all missing Kconfig references
+        run: |
+          echo "=== Scanning all Kconfig source references ==="
+          find . -name "Kconfig" -exec grep -h 'source "' {} \; 2>/dev/null | \
+            sed 's/.*source "//;s/".*//' | sort -u | while read f; do
+            if [ ! -f "$f" ]; then
+              mkdir -p "$(dirname "$f")"
+              touch "$f"
+              echo "Created: $f"
+            fi
+          done
+          echo "=== Done fixing Kconfig references ==="
+
       - name: Build kernel
         run: |
           export ARCH=arm64
@@ -45,15 +58,10 @@ jobs:
           echo "Using defconfig: $DEFCONFIG"
 
           if [ -z "$DEFCONFIG" ]; then
-            echo "No zorn defconfig found, using defconfig"
             make defconfig
           else
             make $DEFCONFIG
           fi
-
-          # 修复 heimdall 模块引用问题
-          sed -i 's/"drivers\/misc\/heimdall\/Kconfig"/""/g' drivers/misc/Kconfig
-          sed -i '/obj-.*heimdall/d' drivers/misc/Makefile
 
           scripts/config --enable CONFIG_KPM
           scripts/config --enable CONFIG_KALLSYMS
@@ -73,11 +81,9 @@ jobs:
         if: success()
         run: |
           git clone --depth=1 https://github.com/osm0sis/AnyKernel3.git
-
           cp arch/arm64/boot/Image.gz-dtb AnyKernel3/ 2>/dev/null || \
           cp arch/arm64/boot/Image.gz AnyKernel3/ 2>/dev/null || \
           cp arch/arm64/boot/Image AnyKernel3/
-
           cd AnyKernel3
           zip -r9 ../kernel-zorn-sukisu.zip . -x "*.git*"
 

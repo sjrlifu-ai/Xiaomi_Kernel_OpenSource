@@ -32,6 +32,23 @@ jobs:
         run: |
           curl -LSs "https://raw.githubusercontent.com/SukiSU-Ultra/SukiSU-Ultra/main/kernel/setup.sh" | bash -s builtin
 
+      - name: Fix all Makefile directives
+        run: |
+          echo "=== Fixing file2alias.c Makefile ==="
+          find . -name "file2alias.c" -type f 2>/dev/null
+          echo ""
+          echo "=== Showing file2alias.c location ==="
+          find . -path "*file2alias*" 2>/dev/null | head -10
+          echo ""
+          echo "=== Fixing STRICT_R_ALLOC_RETURN ==="
+          find . -name "Makefile" -path "*file2alias*" -exec sed -i 's/obj STRICT_R_ALLOC_RETURN/obj-\$(CONFIG_STRICT_R_ALLOC_RETURN) += \$(shell echo "STRICT_R_ALLOC_RETURN" | grep -c "^obj-" || echo "file2alias")/g' {} \; 2>/dev/null || echo "No changes"
+          echo ""
+          echo "=== Fixed ==="
+          find . -name "file2alias.c" -type f 2>/dev/null
+          echo ""
+          echo "=== Fixing all other Makefile directives ==="
+          find . -name "Makefile" -type f -exec sed -i 's/obj STRICT_R_ALLOC_RETURN/obj-\$(CONFIG_STRICT_R_ALLOC_RETURN) += \$(shell echo "STRICT_R_ALLOC_RETURN" | grep -c "^obj-" || echo "file2alias")/g' {} \; 2>/dev/null || echo "No changes"
+
       - name: Fix all missing Kconfig references
         run: |
           find . -name "Kconfig" -exec grep -h 'source "' {} \; 2>/dev/null | \
@@ -64,15 +81,15 @@ jobs:
           scripts/config --enable CONFIG_MODULES
 
           make olddefconfig
-          make -j$(nproc) 2>&1 | tee build.log || true
+          make -j$(nproc) 2>&1 | tee build.log
 
-      - name: Show build errors
+      - name: Show build result
         if: always()
         run: |
           echo "=== Last 80 lines of build log ==="
           tail -80 build.log 2>/dev/null || echo "No build log"
           echo ""
-          echo "=== All error lines ==="
+          echo "=== Actual errors ==="
           grep -n "error:" build.log 2>/dev/null | tail -30 || echo "No errors found"
 
       - name: Upload build log

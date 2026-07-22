@@ -65,10 +65,14 @@ jobs:
 
           make olddefconfig
 
-          # Fix ispv4_defs.h: add missing includes for uint32_t and struct timespec
-          { echo '#include <stdint.h>'; echo '#include <linux/time.h>'; cat include/media/ispv4_defs.h; } > include/media/ispv4_defs.h.tmp
-          mv include/media/ispv4_defs.h.tmp include/media/ispv4_defs.h
-          echo "Patched include/media/ispv4_defs.h"
+          # Find and patch ALL copies of ispv4_defs.h with missing includes
+          find . -name "ispv4_defs.h" -not -path "*/out/*" | while read f; do
+            if ! grep -q '#include <stdint.h>' "$f"; then
+              { echo '#include <stdint.h>'; echo '#include <linux/time.h>'; cat "$f"; } > "$f.tmp"
+              mv "$f.tmp" "$f"
+              echo "Patched: $f"
+            fi
+          done
 
           make -j$(nproc) Image modules 2>&1 | tee build.log
 
@@ -83,7 +87,6 @@ jobs:
           echo ""
           echo "=== Kernel image check ==="
           ls -la arch/arm64/boot/Image* 2>/dev/null || echo "No Image found in arch/arm64/boot/"
-          ls -la out/arch/arm64/boot/Image* 2>/dev/null || echo "No Image found in out/arch/arm64/boot/"
 
       - name: Upload build log
         if: always()
@@ -99,9 +102,6 @@ jobs:
           cp arch/arm64/boot/Image.gz-dtb AnyKernel3/ 2>/dev/null || \
           cp arch/arm64/boot/Image.gz AnyKernel3/ 2>/dev/null || \
           cp arch/arm64/boot/Image AnyKernel3/ 2>/dev/null || \
-          cp out/arch/arm64/boot/Image.gz-dtb AnyKernel3/ 2>/dev/null || \
-          cp out/arch/arm64/boot/Image.gz AnyKernel3/ 2>/dev/null || \
-          cp out/arch/arm64/boot/Image AnyKernel3/ 2>/dev/null || \
           { echo "ERROR: No kernel image found"; exit 1; }
           cd AnyKernel3
           zip -r9 ../kernel-zorn-sukisu.zip . -x "*.git*"

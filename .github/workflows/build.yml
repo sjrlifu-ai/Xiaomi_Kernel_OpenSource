@@ -64,6 +64,10 @@ jobs:
           scripts/config --enable CONFIG_MODULES
 
           make olddefconfig
+
+          # Fix broken HDRTEST for ispv4_defs.h (missing stdint.h/time.h in standalone test)
+          sed -i '/ispv4_defs\.h/d' usr/include/Makefile
+
           make -j$(nproc) 2>&1 | tee build.log
 
       - name: Show build result

@@ -43,22 +43,20 @@ jobs:
             fi
           done
 
-      - name: Find correct defconfig
+      - name: Prepare zorn-perf config
         run: |
-          echo "=== All defconfigs ==="
-          find arch/arm64/configs/ -name "*defconfig" -o -name "*.config" 2>/dev/null | sort
-          echo ""
-          echo "=== zorn-perf directory ==="
-          ls -la arch/arm64/configs/vendor/zorn-perf/ 2>/dev/null || echo "dir not found"
-          echo ""
-          echo "=== Content of zorn-perf_defconfig ==="
-          cat arch/arm64/configs/vendor/zorn-perf/zorn-perf_defconfig 2>/dev/null | head -30
-          echo ""
-          echo "=== Content of zorn-perf.config ==="
-          cat arch/arm64/configs/vendor/zorn-perf/zorn-perf.config 2>/dev/null | head -30
-          echo ""
-          echo "=== All files in zorn-perf ==="
-          find arch/arm64/configs/vendor/zorn-perf/ -type f 2>/dev/null
+          echo "=== Copying zorn-perf config files ==="
+          cp arch/arm64/configs/vendor/zorn-perf/zorn-perf_defconfig arch/arm64/configs/vendor/zorn-perf_defconfig.bak 2>/dev/null || echo "No backup"
+          cp arch/arm64/configs/vendor/zorn-perf/zorn-perf.config arch/arm64/configs/vendor/zorn-perf.config.bak 2>/dev/null || echo "No backup"
+          
+          echo "=== Copying zorn_gki_defconfig ==="
+          cp arch/arm64/configs/vendor/zorn_gki_defconfig arch/arm64/configs/vendor/zorn_gki_defconfig.bak 2>/dev/null || echo "No backup"
+          
+          echo "=== Copying .config ==="
+          cp arch/arm64/configs/vendor/zorn-perf/.config arch/arm64/configs/vendor/.config 2>/dev/null || echo "No .config"
+          
+          echo "=== zorn-perf dir structure ==="
+          find arch/arm64/configs/vendor/zorn-perf/ -maxdepth 2 -type f | sort
 
       - name: Build kernel
         run: |
@@ -67,9 +65,9 @@ jobs:
           export SUBARCH=arm64
           export CROSS_COMPILE=aarch64-linux-gnu-
 
-          # Use the complete zorn-perf configuration
-          DEFCONFIG="arch/arm64/configs/vendor/zorn-perf/zorn-perf_defconfig"
-          CONFIGFILE="arch/arm64/configs/vendor/zorn-perf/zorn-perf.config"
+          # Use zorn_gki_defconfig as base, then merge zorn-perf config
+          DEFCONFIG="arch/arm64/configs/vendor/zorn_gki_defconfig"
+          CONFIGFILE="arch/arm64/configs/vendor/zorn-perf/.config"
 
           echo "Using defconfig: $DEFCONFIG"
           echo "Using config: $CONFIGFILE"
@@ -77,7 +75,7 @@ jobs:
           # Copy config to .config
           cp "$CONFIGFILE" .config
 
-          # Make the defconfig
+          # Make the base defconfig
           make $DEFCONFIG
 
           # Enable required options

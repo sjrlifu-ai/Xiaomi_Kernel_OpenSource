@@ -32,17 +32,6 @@ jobs:
         run: |
           curl -LSs "https://raw.githubusercontent.com/SukiSU-Ultra/SukiSU-Ultra/main/kernel/setup.sh" | bash -s builtin
 
-      - name: Find debugfs location
-        run: |
-          echo "=== Searching for debugfs ==="
-          find . -name "Makefile" -path "*debugfs*" 2>/dev/null | head -10
-          echo ""
-          echo "=== Checking debugfs/ path ==="
-          ls -la drivers/debugfs/ 2>/dev/null || echo "debugfs/ not found"
-          echo ""
-          echo "=== Checking drivers/ ==="
-          ls drivers/ 2>/dev/null || echo "drivers/ not found"
-
       - name: Fix all missing Kconfig references
         run: |
           find . -name "Kconfig" -exec grep -h 'source "' {} \; 2>/dev/null | \
@@ -54,6 +43,25 @@ jobs:
             fi
           done
 
+      - name: Find correct defconfig
+        run: |
+          echo "=== All defconfigs in arch/arm64/configs/ ==="
+          find arch/arm64/configs/ -name "*defconfig" -o -name "*.config" 2>/dev/null | sort
+          echo ""
+          echo "=== Searching for zorn anywhere ==="
+          find . -name "*zorn*" -path "*/configs/*" 2>/dev/null | head -20
+          echo ""
+          echo "=== vendor/ configs ==="
+          ls -la arch/arm64/configs/vendor/ 2>/dev/null || echo "No vendor/ dir"
+          echo ""
+          echo "=== GKI fragments ==="
+          ls arch/arm64/configs/*.fragment 2>/dev/null | head -10
+          echo ""
+          echo "=== Checking build.config ==="
+          cat build.config.common 2>/dev/null | head -20 || echo "No build.config.common"
+          cat build.config.zorn* 2>/dev/null | head -20 || echo "No build.config.zorn*"
+          find . -name "build.config*" -path "*zorn*" 2>/dev/null | head -5
+
       - name: Build kernel
         run: |
           set -eo pipefail
@@ -61,17 +69,36 @@ jobs:
           export SUBARCH=arm64
           export CROSS_COMPILE=aarch64-linux-gnu-
 
-          echo "=== Available defconfigs ==="
-          ls arch/arm64/configs/
+          # Try multiple defconfig locations
+          DEFCONFIG=""
+          for pattern in \
+            "arch/arm64/configs/vendor/zorn_defconfig" \
+            "arch/arm64/configs/vendor/zorn-perf_defconfig" \
+            "arch/arm64/configs/vendor/zorn_gki_defconfig" \
+            "arch/arm64/configs/zorn_defconfig" \
+            "arch/arm64/configs/zorn-perf_defconfig" \
+            "arch/arm64/configs/zorn_gki_defconfig"; do
+            if [ -f "$pattern" ]; then
+              DEFCONFIG="$pattern"
+              break
+            fi
+          done
 
-          DEFCONFIG=$(find arch/arm64/configs -name "*zorn*perf*" -o -name "*zorn*_defconfig" | head -1)
+          # If no exact match, try find
+          if [ -z "$DEFCONFIG" ]; then
+            DEFCONFIG=$(find arch/arm64/configs -name "*zorn*" -name "*defconfig" 2>/dev/null | head -1)
+          fi
+
           echo "Using defconfig: $DEFCONFIG"
 
           if [ -z "$DEFCONFIG" ]; then
-            make defconfig
-          else
-            make $DEFCONFIG
+            echo "ERROR: No zorn defconfig found!"
+            echo "Available configs:"
+            find arch/arm64/configs/ -name "*defconfig" | sort
+            exit 1
           fi
+
+          make $DEFCONFIG
 
           scripts/config --enable CONFIG_KPM
           scripts/config --enable CONFIG_KALLSYMS
@@ -86,11 +113,11 @@ jobs:
           echo "=== Last 100 lines of build log ==="
           tail -100 build.log 2>/dev/null || echo "No build log"
           echo ""
+          echo "=== Search for actual error ==="
+          grep -n "Error\|error:" build.log 2>/dev/null | tail -20 || echo "No errors found"
+          echo ""
           echo "=== arch/arm64/boot/ contents ==="
           ls -la arch/arm64/boot/ 2>/dev/null || echo "No arch/arm64/boot/"
-          echo ""
-          echo "=== out/ directory ==="
-          find out/ -name "Image*" -type f 2>/dev/null || echo "No out/ directory or no Image"
 
       - name: Upload build log
         if: always()
@@ -110,7 +137,7 @@ jobs:
           cp out/arch/arm64/boot/Image.gz-dtb AnyKernel3/ 2>/dev/null || \
           cp out/arch/arm64/boot/Image.gz AnyKernel3/ 2>/dev/null || \
           cp out/arch/arm64/boot/Image AnyKernel3/ 2>/dev/null || \
-          { echo "ERROR: No kernel image found anywhere"; exit 1; }
+          { echo "ERROR: No kernel image found"; exit 1; }
 
           cd AnyKernel3
           zip -r9 ../kernel-zorn-sukisu.zip . -x "*.git*"

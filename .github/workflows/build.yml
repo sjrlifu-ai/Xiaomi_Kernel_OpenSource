@@ -43,6 +43,15 @@ jobs:
             fi
           done
 
+      - name: Fix debugfs Makefile
+        run: |
+          echo "=== Before fix ==="
+          cat kernel/drivers/debugfs/Makefile
+          echo "=== After fix ==="
+          sed -i 's/config KERNEL_DEBUG_INFO/obj-\$(CONFIG_KERNEL_DEBUG_INFO) += \$(shell echo "config KERNEL_DEBUG_INFO" | grep -c "^obj-" || echo "debugfs")/g' kernel/drivers/debugfs/Makefile
+          echo "=== Fixed ==="
+          cat kernel/drivers/debugfs/Makefile
+
       - name: Build kernel
         run: |
           set -eo pipefail

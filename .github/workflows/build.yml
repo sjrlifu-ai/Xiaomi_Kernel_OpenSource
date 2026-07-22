@@ -43,6 +43,23 @@ jobs:
             fi
           done
 
+      - name: Find all defconfigs
+        run: |
+          echo "=== All defconfigs after SukiSU Ultra integration ==="
+          find arch/arm64/configs/ -name "*defconfig" 2>/dev/null | sort
+          echo ""
+          echo "=== vendor/ directory ==="
+          ls -la arch/arm64/configs/vendor/ 2>/dev/null || echo "vendor/ not found"
+          echo ""
+          echo "=== zorn* files anywhere ==="
+          find . -name "*zorn*" 2>/dev/null | head -20
+          echo ""
+          echo "=== gki* files ==="
+          find arch/arm64/configs/ -name "*gki*" 2>/dev/null | sort
+          echo ""
+          echo "=== vendor/ contents ==="
+          find arch/arm64/configs/vendor/ -type f 2>/dev/null | sort | head -30
+
       - name: Build kernel
         run: |
           set -eo pipefail
@@ -50,22 +67,17 @@ jobs:
           export SUBARCH=arm64
           export CROSS_COMPILE=aarch64-linux-gnu-
 
-          echo "=== Available defconfigs ==="
-          find arch/arm64/configs/ -name "*defconfig" 2>/dev/null | sort
-
-          # Use zorn-perf_defconfig
-          DEFCONFIG="arch/arm64/configs/vendor/zorn-perf/zorn-perf_defconfig"
-
+          # Search for any available defconfig
+          DEFCONFIG=$(find arch/arm64/configs/ -name "*defconfig" 2>/dev/null | head -1)
           echo "Using defconfig: $DEFCONFIG"
 
-          # Copy config to .config
-          cp $DEFCONFIG .config
+          if [ -z "$DEFCONFIG" ]; then
+            echo "ERROR: No defconfig found!"
+            exit 1
+          fi
 
-          # Load zorn-perf config using scripts/config
-          echo "=== Loading zorn-perf config ==="
-          scripts/config --load arch/arm64/configs/vendor/zorn-perf/zorn-perf.config
+          make $DEFCONFIG
 
-          # Enable required options
           scripts/config --enable CONFIG_KPM
           scripts/config --enable CONFIG_KALLSYMS
           scripts/config --enable CONFIG_KALLSYMS_ALL

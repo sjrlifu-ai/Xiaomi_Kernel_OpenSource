@@ -21,7 +21,8 @@ jobs:
             libxml2-utils lzop pngcrush rsync \
             schedtool squashfs-tools xsltproc \
             zip zlib1g-dev openjdk-17-jdk \
-            gcc-aarch64-linux-gnu g++-aarch64-linux-gnu
+            gcc-aarch64-linux-gnu g++-aarch64-linux-gnu \
+            libelf-dev
 
       - name: Setup ccache
         uses: hendrikmuhs/ccache-action@v1
@@ -31,23 +32,6 @@ jobs:
       - name: Integrate SukiSU Ultra
         run: |
           curl -LSs "https://raw.githubusercontent.com/SukiSU-Ultra/SukiSU-Ultra/main/kernel/setup.sh" | bash -s builtin
-
-      - name: Fix all Makefile directives
-        run: |
-          echo "=== Fixing file2alias.c Makefile ==="
-          find . -name "file2alias.c" -type f 2>/dev/null
-          echo ""
-          echo "=== Showing file2alias.c location ==="
-          find . -path "*file2alias*" 2>/dev/null | head -10
-          echo ""
-          echo "=== Fixing STRICT_R_ALLOC_RETURN ==="
-          find . -name "Makefile" -path "*file2alias*" -exec sed -i 's/obj STRICT_R_ALLOC_RETURN/obj-\$(CONFIG_STRICT_R_ALLOC_RETURN) += \$(shell echo "STRICT_R_ALLOC_RETURN" | grep -c "^obj-" || echo "file2alias")/g' {} \; 2>/dev/null || echo "No changes"
-          echo ""
-          echo "=== Fixed ==="
-          find . -name "file2alias.c" -type f 2>/dev/null
-          echo ""
-          echo "=== Fixing all other Makefile directives ==="
-          find . -name "Makefile" -type f -exec sed -i 's/obj STRICT_R_ALLOC_RETURN/obj-\$(CONFIG_STRICT_R_ALLOC_RETURN) += \$(shell echo "STRICT_R_ALLOC_RETURN" | grep -c "^obj-" || echo "file2alias")/g' {} \; 2>/dev/null || echo "No changes"
 
       - name: Fix all missing Kconfig references
         run: |
@@ -71,7 +55,6 @@ jobs:
 
           ZORN_CONFIG="arch/arm64/configs/vendor/zorn_consolidate.config"
           if [ -f "$ZORN_CONFIG" ]; then
-            echo "=== Merging $ZORN_CONFIG ==="
             cat "$ZORN_CONFIG" >> .config
           fi
 
@@ -86,8 +69,8 @@ jobs:
       - name: Show build result
         if: always()
         run: |
-          echo "=== Last 80 lines of build log ==="
-          tail -80 build.log 2>/dev/null || echo "No build log"
+          echo "=== Last 50 lines of build log ==="
+          tail -50 build.log 2>/dev/null || echo "No build log"
           echo ""
           echo "=== Actual errors ==="
           grep -n "error:" build.log 2>/dev/null | tail -30 || echo "No errors found"

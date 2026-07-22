@@ -10,35 +10,6 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Find zorn configs
-        run: |
-          echo "=== All defconfigs ==="
-          find arch/arm64/configs/ -name "*defconfig" 2>/dev/null | sort
-          echo ""
-          echo "=== vendor/ ==="
-          ls -la arch/arm64/configs/vendor/ 2>/dev/null
-          echo ""
-          echo "=== zorn* anywhere ==="
-          find . -name "*zorn*" -type f 2>/dev/null | head -20
-          echo ""
-          echo "=== zorn* files in configs/ ==="
-          find arch/arm64/configs/ -name "*zorn*" 2>/dev/null | sort
-          echo ""
-          echo "=== gki* files ==="
-          find arch/arm64/configs/ -name "*gki*" 2>/dev/null | sort
-          echo ""
-          echo "=== vendor/ contents ==="
-          find arch/arm64/configs/vendor/ -type f 2>/dev/null | sort | head -30
-          echo ""
-          echo "=== zorn*_perf/ ==="
-          ls -laR arch/arm64/configs/vendor/zorn*_perf/ 2>/dev/null | head -50
-          echo ""
-          echo "=== Contents of zorn-perf_defconfig ==="
-          cat arch/arm64/configs/vendor/zorn-perf/zorn-perf_defconfig 2>/dev/null | head -40
-          echo ""
-          echo "=== Contents of zorn-perf.config ==="
-          cat arch/arm64/configs/vendor/zorn-perf/zorn-perf.config 2>/dev/null | head -40
-
       - name: Setup build environment
         run: |
           sudo apt-get update
@@ -81,21 +52,33 @@ jobs:
 
           echo "=== Available defconfigs ==="
           find arch/arm64/configs/ -name "*defconfig" 2>/dev/null | sort
+          echo ""
+          echo "=== vendor/ config files ==="
+          find arch/arm64/configs/vendor/ -name "*zorn*" -type f 2>/dev/null | sort
 
-          # Use zorn-perf_defconfig
-          DEFCONFIG="arch/arm64/configs/vendor/zorn-perf/zorn-perf_defconfig"
-          echo "Using defconfig: $DEFCONFIG"
+          # Step 1: Start with gki_defconfig
+          make gki_defconfig
 
-          if [ ! -f "$DEFCONFIG" ]; then
-            echo "ERROR: zorn-perf_defconfig not found!"
-            exit 1
+          # Step 2: Merge zorn_GKI.config on top
+          ZORN_CONFIG="arch/arm64/configs/vendor/zorn_GKI.config"
+          if [ -f "$ZORN_CONFIG" ]; then
+            echo "=== Merging $ZORN_CONFIG ==="
+            scripts/config --file .config --merge "$ZORN_CONFIG"
+          else
+            echo "=== zorn_GKI.config not found, trying zorn_consolidate.config ==="
+            ZORN_CONFIG="arch/arm64/configs/vendor/zorn_consolidate.config"
+            if [ -f "$ZORN_CONFIG" ]; then
+              scripts/config --file .config --merge "$ZORN_CONFIG"
+            else
+              echo "WARNING: No zorn config found, using gki_defconfig only"
+            fi
           fi
 
-          make $DEFCONFIG
-
+          # Step 3: Enable SukiSU Ultra options
           scripts/config --enable CONFIG_KPM
           scripts/config --enable CONFIG_KALLSYMS
           scripts/config --enable CONFIG_KALLSYMS_ALL
+          scripts/config --enable CONFIG_MODULES
 
           make olddefconfig
           make -j$(nproc) 2>&1 | tee build.log

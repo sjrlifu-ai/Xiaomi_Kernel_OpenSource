@@ -34,7 +34,6 @@ jobs:
 
       - name: Fix all missing Kconfig references
         run: |
-          echo "=== Scanning all Kconfig source references ==="
           find . -name "Kconfig" -exec grep -h 'source "' {} \; 2>/dev/null | \
             sed 's/.*source "//;s/".*//' | sort -u | while read f; do
             if [ ! -f "$f" ]; then
@@ -43,10 +42,10 @@ jobs:
               echo "Created: $f"
             fi
           done
-          echo "=== Done fixing Kconfig references ==="
 
       - name: Build kernel
         run: |
+          set -eo pipefail
           export ARCH=arm64
           export SUBARCH=arm64
           export CROSS_COMPILE=aarch64-linux-gnu-
@@ -70,6 +69,18 @@ jobs:
           make olddefconfig
           make -j$(nproc) 2>&1 | tee build.log
 
+      - name: Show build result
+        if: always()
+        run: |
+          echo "=== Last 100 lines of build log ==="
+          tail -100 build.log 2>/dev/null || echo "No build log"
+          echo ""
+          echo "=== arch/arm64/boot/ contents ==="
+          ls -la arch/arm64/boot/ 2>/dev/null || echo "No arch/arm64/boot/"
+          echo ""
+          echo "=== out/ directory ==="
+          find out/ -name "Image*" -type f 2>/dev/null || echo "No out/ directory or no Image"
+
       - name: Upload build log
         if: always()
         uses: actions/upload-artifact@v4
@@ -81,9 +92,15 @@ jobs:
         if: success()
         run: |
           git clone --depth=1 https://github.com/osm0sis/AnyKernel3.git
+
           cp arch/arm64/boot/Image.gz-dtb AnyKernel3/ 2>/dev/null || \
           cp arch/arm64/boot/Image.gz AnyKernel3/ 2>/dev/null || \
-          cp arch/arm64/boot/Image AnyKernel3/
+          cp arch/arm64/boot/Image AnyKernel3/ 2>/dev/null || \
+          cp out/arch/arm64/boot/Image.gz-dtb AnyKernel3/ 2>/dev/null || \
+          cp out/arch/arm64/boot/Image.gz AnyKernel3/ 2>/dev/null || \
+          cp out/arch/arm64/boot/Image AnyKernel3/ 2>/dev/null || \
+          { echo "ERROR: No kernel image found anywhere"; exit 1; }
+
           cd AnyKernel3
           zip -r9 ../kernel-zorn-sukisu.zip . -x "*.git*"
 

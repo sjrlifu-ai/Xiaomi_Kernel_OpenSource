@@ -32,6 +32,17 @@ jobs:
         run: |
           curl -LSs "https://raw.githubusercontent.com/SukiSU-Ultra/SukiSU-Ultra/main/kernel/setup.sh" | bash -s builtin
 
+      - name: Find debugfs location
+        run: |
+          echo "=== Searching for debugfs ==="
+          find . -name "Makefile" -path "*debugfs*" 2>/dev/null | head -10
+          echo ""
+          echo "=== Checking debugfs/ path ==="
+          ls -la drivers/debugfs/ 2>/dev/null || echo "debugfs/ not found"
+          echo ""
+          echo "=== Checking drivers/ ==="
+          ls drivers/ 2>/dev/null || echo "drivers/ not found"
+
       - name: Fix all missing Kconfig references
         run: |
           find . -name "Kconfig" -exec grep -h 'source "' {} \; 2>/dev/null | \
@@ -42,15 +53,6 @@ jobs:
               echo "Created: $f"
             fi
           done
-
-      - name: Fix debugfs Makefile
-        run: |
-          echo "=== Before fix ==="
-          cat kernel/drivers/debugfs/Makefile
-          echo "=== After fix ==="
-          sed -i 's/config KERNEL_DEBUG_INFO/obj-\$(CONFIG_KERNEL_DEBUG_INFO) += \$(shell echo "config KERNEL_DEBUG_INFO" | grep -c "^obj-" || echo "debugfs")/g' kernel/drivers/debugfs/Makefile
-          echo "=== Fixed ==="
-          cat kernel/drivers/debugfs/Makefile
 
       - name: Build kernel
         run: |
